@@ -952,6 +952,21 @@ function migrarOrdemProdutos(){
   if(precisaSalvar) DB.set('cv_produtos', produtos);
 }
 migrarOrdemProdutos();
+function migrarFormasPagamentoAntigas(){
+  let precisaSalvarVendas = false;
+  vendas.forEach(v => {
+    if(v.forma === 'Pix'){ v.forma = 'Pago'; precisaSalvarVendas = true; }
+    else if(v.forma === 'Fiado'){ v.forma = 'Pendente'; precisaSalvarVendas = true; }
+  });
+  if(precisaSalvarVendas) DB.set('cv_vendas', vendas);
+
+  let precisaSalvarEncomendas = false;
+  encomendas.forEach(e => {
+    if(e.formaPagamento === 'Pix'){ e.formaPagamento = 'Pago'; precisaSalvarEncomendas = true; }
+    else if(e.formaPagamento === 'Fiado'){ e.formaPagamento = 'Pendente'; precisaSalvarEncomendas = true; }
+  });
+  if(precisaSalvarEncomendas) DB.set('cv_encomendas', encomendas);
+}
 let vendaItensTemp = [];
 let vendaEditId = null;
 let vendaEditOriginal = null;
@@ -3086,6 +3101,7 @@ async function baixarDadosDaNuvem(userId){
   encomendas = DB.get('cv_encomendas');
   config = (() => { try{ return JSON.parse(localStorage.getItem('cv_config')) || {}; }catch(e){ return {}; } })();
   migrarOrdemProdutos();
+  migrarFormasPagamentoAntigas();
   renderClientes(); renderProdutos(); renderVendas(); renderResumo();
 
   if(!houveDadosNaNuvem){
@@ -3112,6 +3128,7 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 /* ---------- init ---------- */
+migrarFormasPagamentoAntigas();
 renderVendas();
 renderClientes();
 renderProdutos();

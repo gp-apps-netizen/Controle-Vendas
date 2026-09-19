@@ -957,6 +957,7 @@ function migrarFormasPagamentoAntigas(){
   vendas.forEach(v => {
     if(v.forma === 'Pix'){ v.forma = 'Pago'; precisaSalvarVendas = true; }
     else if(v.forma === 'Fiado'){ v.forma = 'Pendente'; precisaSalvarVendas = true; }
+    if(v.status === 'Pago' && v.forma === 'Pendente'){ v.forma = 'Pago'; precisaSalvarVendas = true; }
   });
   if(precisaSalvarVendas) DB.set('cv_vendas', vendas);
 
@@ -2703,6 +2704,7 @@ function marcarComoPago(id){
   const v = vendas.find(v => v.id === id);
   if(!v) return;
   v.status = 'Pago';
+  if(v.forma === 'Pendente'){ v.forma = 'Pago'; }
   DB.set('cv_vendas', vendas);
   renderVendas();
   enviarAgradecimentoPagamento(v);

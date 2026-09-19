@@ -579,7 +579,7 @@
       <div id="resumoTopProdutos"></div>
     </div>
     <div class="card">
-      <h3>A receber (fiado pendente)</h3>
+      <h3>A receber (pendente)</h3>
       <div id="resumoPendentes"></div>
     </div>
     <div class="card">
@@ -668,7 +668,7 @@
       <label>Valor pago agora (Pix/dinheiro)</label>
       <input id="vendaValorPago" type="number" min="0" step="0.01" placeholder="0,00" oninput="atualizarCampoDividido()">
       <div class="total-line" style="border-top:none; padding-top:0;">
-        <span style="font-size:13px; font-weight:500; color:var(--ink-soft);">Fica fiado</span>
+        <span style="font-size:13px; font-weight:500; color:var(--ink-soft);">Fica pendente</span>
         <span id="vendaValorFiadoDisplay">R$ 0,00</span>
       </div>
     </div>
@@ -2625,7 +2625,7 @@ function salvarVenda(){
   if(forma === 'Dividido'){
     valorPago = parseFloat(document.getElementById('vendaValorPago').value) || 0;
     if(valorPago <= 0){ alert('Informe o valor pago agora para uma venda dividida.'); return; }
-    if(valorPago >= total){ alert('O valor pago é maior ou igual ao total — escolha "Pix" em vez de "Dividido".'); return; }
+    if(valorPago >= total){ alert('O valor pago é maior ou igual ao total — escolha "Pago" em vez de "Dividido".'); return; }
     valorFiado = Math.round((total - valorPago) * 100) / 100;
     status = (vendaEditOriginal && vendaEditOriginal.forma === 'Dividido') ? vendaEditOriginal.status : 'Pendente';
   } else if(forma !== 'Pendente'){

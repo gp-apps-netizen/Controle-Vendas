@@ -981,6 +981,9 @@ function salvarConfig(){
   config.pixKey = document.getElementById('configPixKey').value.trim();
   config.metaMensal = parseFloat(document.getElementById('configMetaMensal').value) || 0;
   localStorage.setItem('cv_config', JSON.stringify(config));
+  // envia para a nuvem depois que parar de digitar
+  clearTimeout(salvarConfig._t);
+  salvarConfig._t = setTimeout(() => syncToCloud('cv_config', config), 800);
 }
 /* ---------- CATÁLOGO EM IMAGEM ---------- */
 function wrapTextCatalogo(ctx, text, x, y, maxWidth, lineHeight, maxLines){
@@ -1230,6 +1233,7 @@ function importarBackup(ev){
     DB.set('cv_fornecedores', fornecedores);
     DB.set('cv_encomendas', encomendas);
     localStorage.setItem('cv_config', JSON.stringify(config));
+    syncToCloud('cv_config', config);
     renderClientes(); renderProdutos(); renderVendas(); renderResumo();
     alert('Backup importado com sucesso!');
     ev.target.value = '';

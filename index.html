@@ -564,18 +564,22 @@
   <!-- RESUMO -->
   <section class="view" id="view-resumo">
     <div class="section-head"><h2>Resumo</h2></div>
+    <div class="filter-row">
+      <select id="resumoMesSel" onchange="renderResumo()"></select>
+    </div>
+    <div id="resumoComparativo"></div>
     <div class="stat-grid" id="resumoStats"></div>
     <div id="resumoMetaCard"></div>
     <div class="card" style="margin-top:12px;">
-      <h3>Vendas por mês</h3>
+      <h3>Vendas por mês <span style="font-size:11px; color:var(--ink-soft); font-weight:400; font-family:'IBM Plex Sans';">· toque numa barra</span></h3>
       <div id="resumoGrafico"></div>
     </div>
     <div class="card">
-      <h3>Por forma de pagamento (mês atual)</h3>
+      <h3>Por forma de pagamento <span id="resumoFormasMesLbl" style="color:var(--ink-soft); font-weight:400;"></span></h3>
       <div id="resumoFormas"></div>
     </div>
     <div class="card">
-      <h3>Produtos mais vendidos</h3>
+      <h3>Produtos mais vendidos <span id="resumoTopMesLbl" style="color:var(--ink-soft); font-weight:400;"></span></h3>
       <div id="resumoTopProdutos"></div>
     </div>
     <div class="card">
@@ -2875,7 +2879,8 @@ function renderGraficoVendasPorMes(){
   }
 
   const max = Math.max(...totais, 1);
-  const largura = 320, altura = 140, padBase = 22, padTopo = 10;
+  const mesSelecionado = mesResumoSelecionado();
+  const largura = 320, altura = 150, padBase = 22, padTopo = 20;
   const larguraBarra = (largura / meses.length) * 0.55;
   const espaco = largura / meses.length;
 
@@ -2887,10 +2892,15 @@ function renderGraficoVendasPorMes(){
     const y = altura - padBase - alturaBarra;
     const [ano, mesNum] = m.split('-');
     const label = nomesMes[parseInt(mesNum) - 1];
-    const ehMesAtual = m === todayISO().slice(0,7);
+    const ehSel = m === mesSelecionado;
+    const valorCurto = valor >= 1000 ? (valor/1000).toLocaleString('pt-BR',{maximumFractionDigits:1}) + 'k' : Math.round(valor).toString();
     barras += `
-      <rect x="${x}" y="${y}" width="${larguraBarra}" height="${alturaBarra}" rx="3" fill="${ehMesAtual ? 'var(--green,#E8A33D)' : 'var(--gold,#5B8AA6)'}" opacity="${ehMesAtual ? '1' : '0.55'}"></rect>
-      <text x="${x + larguraBarra/2}" y="${altura - 6}" text-anchor="middle" font-size="9" fill="var(--ink-soft,#9AA0A6)" font-family="IBM Plex Mono, monospace">${label}</text>
+      <g style="cursor:pointer;" onclick="selecionarMesResumo('${m}')">
+        <rect x="${idx * espaco}" y="0" width="${espaco}" height="${altura}" fill="transparent"></rect>
+        <rect x="${x}" y="${y}" width="${larguraBarra}" height="${alturaBarra}" rx="3" fill="${ehSel ? 'var(--green,#E8A33D)' : 'var(--gold,#5B8AA6)'}" opacity="${ehSel ? '1' : '0.55'}"></rect>
+        ${valor > 0 ? `<text x="${x + larguraBarra/2}" y="${y - 4}" text-anchor="middle" font-size="8.5" fill="${ehSel ? 'var(--green,#E8A33D)' : 'var(--ink-soft,#9AA0A6)'}" font-family="IBM Plex Mono, monospace">${valorCurto}</text>` : ''}
+        <text x="${x + larguraBarra/2}" y="${altura - 6}" text-anchor="middle" font-size="9" fill="${ehSel ? 'var(--green,#E8A33D)' : 'var(--ink-soft,#9AA0A6)'}" font-weight="${ehSel ? '600' : '400'}" font-family="IBM Plex Mono, monospace">${label}</text>
+      </g>
     `;
   });
 
@@ -2901,10 +2911,44 @@ function renderGraficoVendasPorMes(){
     <div class="meta" style="text-align:center; margin-top:6px;">Últimos 6 meses (sem cortesias) · maior mês: ${fmtMoney(max)}</div>
   `;
 }
+let resumoMesEscolhido = null;
+function mesResumoSelecionado(){
+  return resumoMesEscolhido || todayISO().slice(0,7);
+}
+function selecionarMesResumo(ym){
+  resumoMesEscolhido = ym;
+  renderResumo();
+}
+function mesAnteriorYM(ym){
+  const [y,m] = ym.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function popularResumoMesSel(){
+  const sel = document.getElementById('resumoMesSel');
+  const meses = new Set(vendas.map(v => v.data.slice(0,7)));
+  meses.add(todayISO().slice(0,7));
+  meses.add(mesResumoSelecionado());
+  const ordenados = Array.from(meses).sort().reverse();
+  sel.innerHTML = ordenados.map(m => `<option value="${m}">${labelMes(m)}${m === todayISO().slice(0,7) ? ' (atual)' : ''}</option>`).join('');
+  sel.value = mesResumoSelecionado();
+  sel.onchange = () => selecionarMesResumo(sel.value);
+}
+function verVendasDoMes(ym){
+  switchView('vendas');
+  popularFiltroMes();
+  const sel = document.getElementById('filtroMes');
+  if(Array.from(sel.options).some(o => o.value === ym)){ sel.value = ym; }
+  renderVendas();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
 function renderResumo(){
   document.getElementById('configPixKey').value = config.pixKey || '';
   document.getElementById('configMetaMensal').value = config.metaMensal || '';
-  const mesAtual = todayISO().slice(0,7);
+  popularResumoMesSel();
+  const mesAtual = mesResumoSelecionado();
+  const ehMesCorrente = mesAtual === todayISO().slice(0,7);
+  const sufixo = ehMesCorrente ? 'este mês' : 'em ' + labelMes(mesAtual).split(' de ')[0].toLowerCase();
   const doMesTudo = vendas.filter(v => v.data.slice(0,7) === mesAtual);
   const doMes = doMesTudo.filter(v => v.forma !== 'Cortesia');
   const totalMes = doMes.reduce((s,v)=>s+v.total,0);
@@ -2917,18 +2961,39 @@ function renderResumo(){
   const degustacoes = doMesTudo.filter(v => v.forma === 'Cortesia').length;
 
   document.getElementById('resumoStats').innerHTML = `
-    <div class="stat"><div class="num">${fmtMoney(totalMes)}</div><div class="lbl">Vendido este mês</div></div>
-    <div class="stat gold"><div class="num">${doMesTudo.length}</div><div class="lbl">Vendas este mês${degustacoes ? ` (${degustacoes} cortesia)` : ''}</div></div>
-    <div class="stat"><div class="num">${fmtMoney(lucroMes)}</div><div class="lbl">Lucro estimado este mês (não inclui cortesias)</div></div>
+    <div class="stat"><div class="num">${fmtMoney(totalMes)}</div><div class="lbl">Vendido ${sufixo}</div></div>
+    <div class="stat gold"><div class="num">${doMesTudo.length}</div><div class="lbl">Vendas ${sufixo}${degustacoes ? ` (${degustacoes} cortesia)` : ''}</div></div>
+    <div class="stat"><div class="num">${fmtMoney(lucroMes)}</div><div class="lbl">Lucro estimado ${sufixo} (não inclui cortesias)</div></div>
     <div class="stat gold"><div class="num">${fmtMoney(lucroRecebido)}</div><div class="lbl">Lucro já recebido (só pedidos pagos)</div></div>
+    <div class="stat"><div class="num">${fmtMoney(doMes.length ? totalMes / doMes.length : 0)}</div><div class="lbl">Ticket médio ${sufixo}</div></div>
+    <div class="stat gold"><div class="num">${fmtMoney(doMesTudo.filter(v=>v.status==='Pendente').reduce((s,v)=>s+valorPendenteVenda(v),0))}</div><div class="lbl">Ainda pendente das vendas ${sufixo}</div></div>
   `;
+
+  const mesAnt = mesAnteriorYM(mesAtual);
+  const totalAnt = vendas.filter(v => v.data.slice(0,7) === mesAnt && v.forma !== 'Cortesia').reduce((s,v)=>s+v.total,0);
+  let compTxt = '';
+  if(totalAnt > 0){
+    const dif = ((totalMes - totalAnt) / totalAnt) * 100;
+    const seta = dif >= 0 ? '▲' : '▼';
+    const cor = dif >= 0 ? 'var(--ok)' : '#E08A76';
+    compTxt = `<span style="color:${cor}; font-weight:600;">${seta} ${Math.abs(dif).toLocaleString('pt-BR',{maximumFractionDigits:0})}%</span> em relação a ${labelMes(mesAnt).toLowerCase()} (${fmtMoney(totalAnt)})`;
+  } else {
+    compTxt = `Sem vendas em ${labelMes(mesAnt).toLowerCase()} para comparar`;
+  }
+  document.getElementById('resumoComparativo').innerHTML = `
+    <div class="meta" style="margin-bottom:10px; white-space:normal;">${compTxt}</div>
+    ${doMesTudo.length ? `<button class="btn btn-ghost btn-sm" style="width:100%; margin-bottom:12px;" onclick="verVendasDoMes('${mesAtual}')">🧾 Ver as ${doMesTudo.length} venda(s) de ${labelMes(mesAtual).toLowerCase()}</button>` : ''}
+  `;
+  const lblMes = ehMesCorrente ? '(mês atual)' : `(${labelMes(mesAtual).toLowerCase()})`;
+  document.getElementById('resumoFormasMesLbl').textContent = lblMes;
+  document.getElementById('resumoTopMesLbl').textContent = lblMes;
 
   const metaEl = document.getElementById('resumoMetaCard');
   if(config.metaMensal > 0){
     const pct = Math.min(100, Math.round((totalMes / config.metaMensal) * 100));
     metaEl.innerHTML = `
       <div class="card">
-        <h3>Meta do mês</h3>
+        <h3>Meta do mês${ehMesCorrente ? '' : ` <span style="color:var(--ink-soft); font-weight:400;">(${labelMes(mesAtual).toLowerCase()})</span>`}</h3>
         <div class="meta" style="margin-bottom:8px;">${fmtMoney(totalMes)} de ${fmtMoney(config.metaMensal)} (${pct}%)</div>
         <div style="background:rgba(237,234,227,.1); border-radius:0; height:14px; overflow:hidden; border:1px solid var(--line-strong,var(--line));">
           <div style="width:${pct}%; height:100%; background:var(--green); transition:width .3s ease;"></div>
@@ -2947,7 +3012,7 @@ function renderResumo(){
   const formasKeys = Object.keys(formas);
   formasEl.innerHTML = formasKeys.length ? formasKeys.map(f => `
     <div class="list-item"><div class="info name">${f}</div><div>${fmtMoney(formas[f])}</div></div>
-  `).join('') : '<div class="empty">Sem dados este mês.</div>';
+  `).join('') : '<div class="empty">Sem dados neste mês.</div>';
 
   const contagem = {};
   doMes.forEach(v => v.itens.forEach(i => {
@@ -2975,7 +3040,7 @@ function renderResumo(){
       </div>
     </div>
   `;
-  }).join('') : '<div class="empty">Sem vendas este mês.</div>';
+  }).join('') : '<div class="empty">Sem vendas neste mês.</div>';
 
   const pendentesPorCliente = {};
   vendas.filter(v => v.status === 'Pendente').forEach(v => {

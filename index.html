@@ -583,6 +583,20 @@
       <div id="resumoTopProdutos"></div>
     </div>
     <div class="card">
+      <h3>Histórico de produtos</h3>
+      <div class="filter-row" style="margin-bottom:8px;">
+        <select id="histProdPeriodo" onchange="renderHistoricoProdutos()">
+          <option value="mes">Mês escolhido no Resumo</option>
+          <option value="3">Últimos 3 meses</option>
+          <option value="6">Últimos 6 meses</option>
+          <option value="ano">Este ano</option>
+          <option value="tudo" selected>Todo o período</option>
+        </select>
+      </div>
+      <input id="histProdBusca" type="search" placeholder="Buscar produto..." oninput="renderHistoricoProdutos()" style="margin-bottom:8px;">
+      <div id="histProdLista"></div>
+    </div>
+    <div class="card">
       <h3>A receber (pendente)</h3>
       <div id="resumoPendentes"></div>
     </div>
@@ -729,6 +743,18 @@
       <span id="transferirPrevia"></span>
     </div>
     <button class="btn btn-primary" style="margin-top:14px;" onclick="confirmarTransferirEstoque()">Transferir</button>
+  </div>
+</div>
+
+<!-- MODAL HISTORICO DO PRODUTO -->
+<div class="modal-bg" id="histProdModalBg" onclick="if(event.target===this) fecharHistoricoProduto()">
+  <div class="modal">
+    <div class="sheet-handle"></div>
+    <div class="section-head">
+      <h2 id="histProdTitulo">Histórico</h2>
+      <button class="close-x" onclick="fecharHistoricoProduto()">✕</button>
+    </div>
+    <div id="histProdConteudo"></div>
   </div>
 </div>
 
@@ -2290,6 +2316,7 @@ function renderProdutos(){
       <div class="prod-card-acoes-wrap" id="produtoAcoes-${p.id}" style="display:none;">
         <div class="prod-card-actions">
           <button class="icon-btn gold" onclick="abrirEntradaEstoque('${p.id}')">+ Estoque</button>
+          <button class="icon-btn" onclick="abrirHistoricoProduto('${p.id}')">📊 Histórico</button>
           <button class="icon-btn" onclick="editarProduto('${p.id}')">Editar</button>
           <button class="icon-btn del" onclick="excluirProduto('${p.id}')">Excluir</button>
         </div>
@@ -3075,6 +3102,152 @@ function renderResumo(){
     }).join('')}
     <div class="total-line"><span>Total a receber</span><span>${fmtMoney(totalPendente)}</span></div>
   ` : '<div class="empty">Nenhum valor pendente 🎉</div>';
+  renderHistoricoProdutos();
+}
+/* ---------- HISTÓRICO DE PRODUTOS ---------- */
+function chaveItemProduto(i){
+  return i.produtoId || ('nome:' + (i.nome || '').trim().toLowerCase());
+}
+function linhasHistoricoProduto(chave){
+  const linhas = [];
+  vendas.forEach(v => {
+    (v.itens || []).forEach(i => {
+      if(chaveItemProduto(i) !== chave) return;
+      const cortesia = v.forma === 'Cortesia';
+      const valor = cortesia ? 0 : (i.precoUnit || 0) * i.qtd;
+      const custo = (i.custoUnit || 0) * i.qtd;
+      linhas.push({ venda: v, item: i, cortesia, valor, custo });
+    });
+  });
+  return linhas.sort((a,b) => b.venda.data.localeCompare(a.venda.data) || b.venda.id.localeCompare(a.venda.id));
+}
+function filtroPeriodoHistorico(){
+  const per = document.getElementById('histProdPeriodo').value;
+  const hojeYM = todayISO().slice(0,7);
+  if(per === 'tudo') return () => true;
+  if(per === 'mes'){ const m = mesResumoSelecionado(); return d => d.slice(0,7) === m; }
+  if(per === 'ano'){ const a = hojeYM.slice(0,4); return d => d.slice(0,4) === a; }
+  const n = parseInt(per);
+  let inicio = hojeYM;
+  for(let k = 1; k < n; k++) inicio = mesAnteriorYM(inicio);
+  return d => d.slice(0,7) >= inicio;
+}
+let histProdChaves = [];
+function renderHistoricoProdutos(){
+  const el = document.getElementById('histProdLista');
+  if(!el) return;
+  const noPeriodo = filtroPeriodoHistorico();
+  const busca = (document.getElementById('histProdBusca').value || '').trim().toLowerCase();
+  const mapa = {};
+  vendas.forEach(v => {
+    if(!noPeriodo(v.data)) return;
+    (v.itens || []).forEach(i => {
+      const chave = chaveItemProduto(i);
+      const prod = i.produtoId ? produtos.find(p => p.id === i.produtoId) : null;
+      if(!mapa[chave]) mapa[chave] = { chave, nome: prod ? prod.nome : i.nome, unidade: i.unidade || 'un', qtd: 0, cortesiaQtd: 0, valor: 0, custo: 0, vendas: new Set(), ultima: '' };
+      const g = mapa[chave];
+      if(v.forma === 'Cortesia'){ g.cortesiaQtd += i.qtd; }
+      else { g.qtd += i.qtd; g.valor += (i.precoUnit || 0) * i.qtd; g.custo += (i.custoUnit || 0) * i.qtd; }
+      g.vendas.add(v.id);
+      if(v.data > g.ultima) g.ultima = v.data;
+    });
+  });
+  let lista = Object.values(mapa).sort((a,b) => b.valor - a.valor || b.qtd - a.qtd);
+  if(busca) lista = lista.filter(g => (g.nome || '').toLowerCase().includes(busca));
+  if(!lista.length){ el.innerHTML = '<div class="empty">Nenhum produto vendido neste período.</div>'; return; }
+  const fmtQ = (q,u) => u === 'un' ? `${q} un` : `${q} ${u}`;
+  const totalValor = lista.reduce((s,g)=>s+g.valor,0);
+  histProdChaves = lista.map(g => g.chave);
+  el.innerHTML = lista.map((g, idx) => `
+    <div class="list-item" style="cursor:pointer; display:block;" onclick="abrirHistoricoProduto(histProdChaves[${idx}])">
+      <div style="display:flex; justify-content:space-between; gap:8px;">
+        <div class="name">${escapeHtml(g.nome || 'Produto')}</div>
+        <div style="white-space:nowrap;">${fmtMoney(g.valor)}</div>
+      </div>
+      <div class="meta">${fmtQ(g.qtd, g.unidade)} vendido(s)${g.cortesiaQtd ? ` + ${fmtQ(g.cortesiaQtd, g.unidade)} cortesia` : ''} · ${g.vendas.size} venda(s) · lucro ${fmtMoney(g.valor - g.custo)} · última ${fmtDate(g.ultima)} ›</div>
+    </div>
+  `).join('') + `<div class="total-line"><span>Total no período</span><span>${fmtMoney(totalValor)}</span></div>`;
+}
+function abrirHistoricoProduto(chave){
+  const prod = produtos.find(p => p.id === chave);
+  const linhas = linhasHistoricoProduto(chave);
+  const nome = prod ? prod.nome : (linhas[0] ? linhas[0].item.nome : 'Produto');
+  const unidade = prod ? unidadeProduto(prod) : (linhas[0] ? (linhas[0].item.unidade || 'un') : 'un');
+  const fmtQ = q => unidade === 'un' ? `${q} un` : `${q} ${unidade}`;
+  document.getElementById('histProdTitulo').textContent = nome;
+  const cont = document.getElementById('histProdConteudo');
+  if(!linhas.length){
+    cont.innerHTML = '<div class="empty">Este produto ainda não foi vendido.</div>';
+  } else {
+    const pagas = linhas.filter(l => !l.cortesia);
+    const qtdTotal = pagas.reduce((s,l)=>s+l.item.qtd,0);
+    const valorTotal = pagas.reduce((s,l)=>s+l.valor,0);
+    const custoTotal = pagas.reduce((s,l)=>s+l.custo,0);
+    const cortesiaQtd = linhas.filter(l=>l.cortesia).reduce((s,l)=>s+l.item.qtd,0);
+    const clientesUnicos = new Set(linhas.map(l => l.venda.clienteId || '-')).size;
+
+    const porMes = {};
+    linhas.forEach(l => {
+      const m = l.venda.data.slice(0,7);
+      if(!porMes[m]) porMes[m] = { qtd: 0, valor: 0, cortesia: 0 };
+      if(l.cortesia) porMes[m].cortesia += l.item.qtd;
+      else { porMes[m].qtd += l.item.qtd; porMes[m].valor += l.valor; }
+    });
+    const meses = Object.keys(porMes).sort().reverse();
+    const maxMes = Math.max(...meses.map(m => porMes[m].qtd), 1);
+
+    const porCliente = {};
+    pagas.forEach(l => {
+      const k = l.venda.clienteId || '-';
+      if(!porCliente[k]) porCliente[k] = { clienteId: l.venda.clienteId, qtd: 0, valor: 0 };
+      porCliente[k].qtd += l.item.qtd; porCliente[k].valor += l.valor;
+    });
+    const topClientes = Object.values(porCliente).sort((a,b)=>b.qtd-a.qtd).slice(0,5);
+
+    cont.innerHTML = `
+      <div class="stat-grid" style="margin-bottom:12px;">
+        <div class="stat"><div class="num">${fmtQ(qtdTotal)}</div><div class="lbl">Vendido no total${cortesiaQtd ? ` (+${cortesiaQtd} cortesia)` : ''}</div></div>
+        <div class="stat gold"><div class="num">${fmtMoney(valorTotal)}</div><div class="lbl">Faturado com este produto</div></div>
+        <div class="stat"><div class="num">${fmtMoney(valorTotal - custoTotal)}</div><div class="lbl">Lucro estimado</div></div>
+        <div class="stat gold"><div class="num">${clientesUnicos}</div><div class="lbl">Cliente(s) diferentes</div></div>
+      </div>
+
+      <h3 style="margin:6px 0 8px;">Por mês</h3>
+      ${meses.map(m => `
+        <div style="margin-bottom:8px;">
+          <div style="display:flex; justify-content:space-between; font-size:13px;">
+            <span>${labelMes(m)}</span>
+            <span>${fmtQ(porMes[m].qtd)}${porMes[m].cortesia ? ` +${porMes[m].cortesia} cort.` : ''} · ${fmtMoney(porMes[m].valor)}</span>
+          </div>
+          <div style="background:rgba(237,234,227,.08); height:6px; margin-top:3px;">
+            <div style="width:${Math.round(porMes[m].qtd / maxMes * 100)}%; height:100%; background:var(--green);"></div>
+          </div>
+        </div>
+      `).join('')}
+
+      ${topClientes.length ? `
+        <h3 style="margin:14px 0 8px;">Quem mais compra</h3>
+        ${topClientes.map(c => `<div class="list-item"><div class="info name">${escapeHtml(nomeCliente(c.clienteId))}</div><div style="white-space:nowrap;">${fmtQ(c.qtd)} · ${fmtMoney(c.valor)}</div></div>`).join('')}
+      ` : ''}
+
+      <h3 style="margin:14px 0 8px;">Todas as vendas (${linhas.length})</h3>
+      ${linhas.map(l => {
+        const status = l.cortesia ? '<span class="badge">Cortesia</span>' : (l.venda.status === 'Pago' ? '<span class="badge pago">Pago</span>' : '<span class="badge pendente">Pendente</span>');
+        return `
+        <div class="list-item" style="display:block;">
+          <div style="display:flex; justify-content:space-between; gap:8px;">
+            <div class="name">${escapeHtml(nomeCliente(l.venda.clienteId))}</div>
+            <div style="white-space:nowrap;">${l.cortesia ? '—' : fmtMoney(l.valor)}</div>
+          </div>
+          <div class="meta">${fmtDate(l.venda.data)} · ${fmtQtdItem(l.item)}${!l.cortesia && l.item.precoUnit ? ` × ${fmtMoney(l.item.precoUnit)}` : ''} · ${status}</div>
+        </div>`;
+      }).join('')}
+    `;
+  }
+  document.getElementById('histProdModalBg').classList.add('active');
+}
+function fecharHistoricoProduto(){
+  document.getElementById('histProdModalBg').classList.remove('active');
 }
 function toggleDetalheGenerico(chave){
   const el = document.getElementById('detalhe-' + chave);

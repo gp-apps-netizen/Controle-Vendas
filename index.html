@@ -350,6 +350,40 @@
   .section-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
   .section-head h2{font-size:18px;}
 
+
+  /* Histórico de produtos */
+  .hp-overlay{display:none; position:fixed; inset:0; z-index:25; background:var(--paper);}
+  .hp-overlay.active{display:block;}
+  .hp-tela{height:100%; overflow-y:auto; max-width:480px; margin:0 auto; padding:0 16px calc(24px + env(safe-area-inset-bottom));}
+  .hp-topo{position:sticky; top:0; background:var(--paper); display:flex; align-items:center; gap:12px; padding:14px 0 12px; border-bottom:1px solid var(--line); z-index:2;}
+  .hp-topo h2{font-size:18px; line-height:1.2;}
+  .hp-sobre{font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em;}
+  .hp-voltar{background:none; border:none; color:var(--green); font-size:32px; line-height:1; padding:0 6px 4px 0; cursor:pointer;}
+  .hp-foto{width:44px; height:44px; flex:none; display:flex; align-items:center; justify-content:center; font-size:22px; background:var(--paper-raised); overflow:hidden;}
+  .hp-foto img{width:100%; height:100%; object-fit:cover;}
+  .hp-resumo{display:grid; grid-template-columns:repeat(3,1fr); margin:14px 0 6px; border:1px solid var(--line); background:var(--paper-raised);}
+  .hp-resumo > div{padding:12px 8px; text-align:center;}
+  .hp-resumo > div + div{border-left:1px solid var(--line);}
+  .hp-num{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:15px; color:var(--green); white-space:nowrap;}
+  .hp-lbl{font-size:11px; color:var(--ink-soft); margin-top:2px;}
+  .hp-mes{display:flex; justify-content:space-between; font-size:12px; font-weight:600; color:var(--green); text-transform:uppercase; letter-spacing:.04em; padding:18px 0 6px; border-bottom:1px solid var(--line);}
+  .hp-venda{display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);}
+  .hp-dia{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-soft); width:42px; flex:none;}
+  .hp-venda-info{flex:1; min-width:0;}
+  .hp-cli{font-size:14px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .hp-det{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .hp-val{font-size:14px; white-space:nowrap; color:var(--ink);}
+  .hp-st.ok{color:var(--ok, #7FB77E);} .hp-st.pend{color:#E08A76;} .hp-st.cort{color:var(--gold, #5B8AA6);}
+  .hp-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); cursor:pointer;}
+  .hp-row:last-child{border-bottom:none;}
+  .hp-thumb{width:36px; height:36px; flex:none; object-fit:cover; display:flex; align-items:center; justify-content:center; background:var(--paper); font-size:18px;}
+  .hp-row-info{flex:1; min-width:0;}
+  .hp-row-nome{font-size:14px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .hp-row-sub{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .hp-row-valor{font-size:14px; white-space:nowrap;}
+  .hp-seta{color:var(--ink-soft); font-size:20px;}
+  .prod-hist-link{display:inline-block; margin-top:6px; font-size:12px; color:var(--green); cursor:pointer; padding:2px 0;}
+
   .modal-bg{
     display:none; position:fixed; inset:0; background:rgba(5,6,7,.6);
     z-index:20; align-items:flex-end; justify-content:center;
@@ -583,7 +617,7 @@
       <div id="resumoTopProdutos"></div>
     </div>
     <div class="card">
-      <h3>Histórico de produtos</h3>
+      <h3>Histórico de produtos <span style="font-size:11px; color:var(--ink-soft); font-weight:400;">· toque para ver as vendas</span></h3>
       <div class="filter-row" style="margin-bottom:8px;">
         <select id="histProdPeriodo" onchange="renderHistoricoProdutos()">
           <option value="mes">Mês escolhido no Resumo</option>
@@ -593,7 +627,6 @@
           <option value="tudo" selected>Todo o período</option>
         </select>
       </div>
-      <input id="histProdBusca" type="search" placeholder="Buscar produto..." oninput="renderHistoricoProdutos()" style="margin-bottom:8px;">
       <div id="histProdLista"></div>
     </div>
     <div class="card">
@@ -746,13 +779,16 @@
   </div>
 </div>
 
-<!-- MODAL HISTORICO DO PRODUTO -->
-<div class="modal-bg" id="histProdModalBg" onclick="if(event.target===this) fecharHistoricoProduto()">
-  <div class="modal">
-    <div class="sheet-handle"></div>
-    <div class="section-head">
-      <h2 id="histProdTitulo">Histórico</h2>
-      <button class="close-x" onclick="fecharHistoricoProduto()">✕</button>
+<!-- TELA HISTORICO DO PRODUTO -->
+<div class="hp-overlay" id="histProdModalBg">
+  <div class="hp-tela" id="histProdTela">
+    <div class="hp-topo">
+      <button class="hp-voltar" onclick="fecharHistoricoProduto()">‹</button>
+      <div class="hp-foto" id="histProdFoto"></div>
+      <div>
+        <div class="hp-sobre">Histórico de vendas</div>
+        <h2 id="histProdTitulo">Produto</h2>
+      </div>
     </div>
     <div id="histProdConteudo"></div>
   </div>
@@ -1290,7 +1326,7 @@ const ORDEM_ABAS = ['vendas','clientes','produtos','reposicao','encomendas','res
   const main = document.querySelector('main');
   let startX = 0, startY = 0, tocando = false;
   main.addEventListener('touchstart', (e) => {
-    if(document.querySelector('.modal-bg.active') || document.querySelector('.auth-overlay.active')) { tocando = false; return; }
+    if(document.querySelector('.modal-bg.active') || document.querySelector('.auth-overlay.active') || document.querySelector('.hp-overlay.active')) { tocando = false; return; }
     if(e.target.closest('.prod-card-top, input, select, textarea, button, a')) { tocando = false; return; }
     tocando = true;
     startX = e.touches[0].clientX;
@@ -2310,13 +2346,13 @@ function renderProdutos(){
             <span class="estoque-destaque ${nivelEstoque(p.estoque)}">🏢 <span class="num">${p.estoque}</span> ${unidadeProduto(p)}</span>
             <span class="estoque-destaque casa">🏠 <span class="num">${p.estoqueCasa || 0}</span> ${unidadeProduto(p)}</span>
           </div>
+          <div class="prod-hist-link" onclick="event.stopPropagation(); abrirHistoricoProduto('${p.id}')">📊 ${qtdVendidaProduto(p.id)} ${unidadeProduto(p)} vendido(s) · ver histórico ›</div>
         </div>
         <div class="drag-handle">⋮⋮</div>
       </div>
       <div class="prod-card-acoes-wrap" id="produtoAcoes-${p.id}" style="display:none;">
         <div class="prod-card-actions">
           <button class="icon-btn gold" onclick="abrirEntradaEstoque('${p.id}')">+ Estoque</button>
-          <button class="icon-btn" onclick="abrirHistoricoProduto('${p.id}')">📊 Histórico</button>
           <button class="icon-btn" onclick="editarProduto('${p.id}')">Editar</button>
           <button class="icon-btn del" onclick="excluirProduto('${p.id}')">Excluir</button>
         </div>
@@ -3105,8 +3141,13 @@ function renderResumo(){
   renderHistoricoProdutos();
 }
 /* ---------- HISTÓRICO DE PRODUTOS ---------- */
+function normNome(t){ return (t||'').toString().trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' '); }
 function chaveItemProduto(i){
-  return i.produtoId || ('nome:' + (i.nome || '').trim().toLowerCase());
+  if(i.produtoId && produtos.some(p => p.id === i.produtoId)) return i.produtoId;
+  const n = normNome(i.nome);
+  const porNome = produtos.find(p => normNome(p.nome) === n);
+  if(porNome) return porNome.id;
+  return i.produtoId || ('nome:' + n);
 }
 function linhasHistoricoProduto(chave){
   const linhas = [];
@@ -3114,141 +3155,123 @@ function linhasHistoricoProduto(chave){
     (v.itens || []).forEach(i => {
       if(chaveItemProduto(i) !== chave) return;
       const cortesia = v.forma === 'Cortesia';
-      const valor = cortesia ? 0 : (i.precoUnit || 0) * i.qtd;
-      const custo = (i.custoUnit || 0) * i.qtd;
-      linhas.push({ venda: v, item: i, cortesia, valor, custo });
+      const preco = i.precoUnit != null ? i.precoUnit : 0;
+      const prodRef = produtos.find(p => p.id === chave);
+      const custoU = i.custoUnit != null ? i.custoUnit : ((prodRef && prodRef.custo) || 0);
+      linhas.push({ venda: v, item: i, cortesia, valor: cortesia ? 0 : preco * i.qtd, custo: custoU * i.qtd });
     });
   });
-  return linhas.sort((a,b) => b.venda.data.localeCompare(a.venda.data) || b.venda.id.localeCompare(a.venda.id));
+  return linhas.sort((a,b) => (b.venda.data||'').localeCompare(a.venda.data||'') || (b.venda.id||'').localeCompare(a.venda.id||''));
+}
+function qtdVendidaProduto(id){
+  let q = 0;
+  vendas.forEach(v => { if(v.forma === 'Cortesia') return; (v.itens||[]).forEach(i => { if(chaveItemProduto(i) === id) q += i.qtd; }); });
+  return q;
 }
 function filtroPeriodoHistorico(){
-  const per = document.getElementById('histProdPeriodo').value;
+  const sel = document.getElementById('histProdPeriodo');
+  const per = sel ? sel.value : 'tudo';
   const hojeYM = todayISO().slice(0,7);
   if(per === 'tudo') return () => true;
-  if(per === 'mes'){ const m = mesResumoSelecionado(); return d => d.slice(0,7) === m; }
-  if(per === 'ano'){ const a = hojeYM.slice(0,4); return d => d.slice(0,4) === a; }
+  if(per === 'mes'){ const m = mesResumoSelecionado(); return d => (d||'').slice(0,7) === m; }
+  if(per === 'ano'){ const a = hojeYM.slice(0,4); return d => (d||'').slice(0,4) === a; }
   const n = parseInt(per);
   let inicio = hojeYM;
   for(let k = 1; k < n; k++) inicio = mesAnteriorYM(inicio);
-  return d => d.slice(0,7) >= inicio;
+  return d => (d||'').slice(0,7) >= inicio;
 }
 let histProdChaves = [];
 function renderHistoricoProdutos(){
   const el = document.getElementById('histProdLista');
   if(!el) return;
   const noPeriodo = filtroPeriodoHistorico();
-  const busca = (document.getElementById('histProdBusca').value || '').trim().toLowerCase();
   const mapa = {};
   vendas.forEach(v => {
     if(!noPeriodo(v.data)) return;
     (v.itens || []).forEach(i => {
       const chave = chaveItemProduto(i);
-      const prod = i.produtoId ? produtos.find(p => p.id === i.produtoId) : null;
-      if(!mapa[chave]) mapa[chave] = { chave, nome: prod ? prod.nome : i.nome, unidade: i.unidade || 'un', qtd: 0, cortesiaQtd: 0, valor: 0, custo: 0, vendas: new Set(), ultima: '' };
+      const prod = produtos.find(p => p.id === chave);
+      if(!mapa[chave]) mapa[chave] = { chave, nome: prod ? prod.nome : i.nome, foto: prod ? prod.foto : '', unidade: i.unidade || unidadeProduto(prod), qtd: 0, valor: 0, vendas: new Set() };
       const g = mapa[chave];
-      if(v.forma === 'Cortesia'){ g.cortesiaQtd += i.qtd; }
-      else { g.qtd += i.qtd; g.valor += (i.precoUnit || 0) * i.qtd; g.custo += (i.custoUnit || 0) * i.qtd; }
+      if(v.forma !== 'Cortesia'){ g.qtd += i.qtd; g.valor += (i.precoUnit || 0) * i.qtd; }
       g.vendas.add(v.id);
-      if(v.data > g.ultima) g.ultima = v.data;
     });
   });
-  let lista = Object.values(mapa).sort((a,b) => b.valor - a.valor || b.qtd - a.qtd);
-  if(busca) lista = lista.filter(g => (g.nome || '').toLowerCase().includes(busca));
+  const lista = Object.values(mapa).sort((a,b) => b.valor - a.valor || b.qtd - a.qtd);
   if(!lista.length){ el.innerHTML = '<div class="empty">Nenhum produto vendido neste período.</div>'; return; }
-  const fmtQ = (q,u) => u === 'un' ? `${q} un` : `${q} ${u}`;
-  const totalValor = lista.reduce((s,g)=>s+g.valor,0);
   histProdChaves = lista.map(g => g.chave);
   el.innerHTML = lista.map((g, idx) => `
-    <div class="list-item" style="cursor:pointer; display:block;" onclick="abrirHistoricoProduto(histProdChaves[${idx}])">
-      <div style="display:flex; justify-content:space-between; gap:8px;">
-        <div class="name">${escapeHtml(g.nome || 'Produto')}</div>
-        <div style="white-space:nowrap;">${fmtMoney(g.valor)}</div>
+    <div class="hp-row" onclick="abrirHistoricoProduto(histProdChaves[${idx}])">
+      ${g.foto ? `<img class="hp-thumb" src="${g.foto}">` : `<div class="hp-thumb">📦</div>`}
+      <div class="hp-row-info">
+        <div class="hp-row-nome">${escapeHtml(g.nome || 'Produto')}</div>
+        <div class="hp-row-sub">${g.qtd} ${g.unidade} · ${g.vendas.size} venda(s)</div>
       </div>
-      <div class="meta">${fmtQ(g.qtd, g.unidade)} vendido(s)${g.cortesiaQtd ? ` + ${fmtQ(g.cortesiaQtd, g.unidade)} cortesia` : ''} · ${g.vendas.size} venda(s) · lucro ${fmtMoney(g.valor - g.custo)} · última ${fmtDate(g.ultima)} ›</div>
+      <div class="hp-row-valor">${fmtMoney(g.valor)}</div>
+      <div class="hp-seta">›</div>
     </div>
-  `).join('') + `<div class="total-line"><span>Total no período</span><span>${fmtMoney(totalValor)}</span></div>`;
+  `).join('');
 }
 function abrirHistoricoProduto(chave){
   const prod = produtos.find(p => p.id === chave);
   const linhas = linhasHistoricoProduto(chave);
   const nome = prod ? prod.nome : (linhas[0] ? linhas[0].item.nome : 'Produto');
   const unidade = prod ? unidadeProduto(prod) : (linhas[0] ? (linhas[0].item.unidade || 'un') : 'un');
-  const fmtQ = q => unidade === 'un' ? `${q} un` : `${q} ${unidade}`;
   document.getElementById('histProdTitulo').textContent = nome;
+  document.getElementById('histProdFoto').innerHTML = prod && prod.foto ? `<img src="${prod.foto}">` : '📦';
   const cont = document.getElementById('histProdConteudo');
   if(!linhas.length){
-    cont.innerHTML = '<div class="empty">Este produto ainda não foi vendido.</div>';
+    cont.innerHTML = '<div class="empty" style="margin-top:30px;">Este produto ainda não tem vendas registradas.</div>';
   } else {
     const pagas = linhas.filter(l => !l.cortesia);
     const qtdTotal = pagas.reduce((s,l)=>s+l.item.qtd,0);
     const valorTotal = pagas.reduce((s,l)=>s+l.valor,0);
     const custoTotal = pagas.reduce((s,l)=>s+l.custo,0);
-    const cortesiaQtd = linhas.filter(l=>l.cortesia).reduce((s,l)=>s+l.item.qtd,0);
-    const clientesUnicos = new Set(linhas.map(l => l.venda.clienteId || '-')).size;
-
-    const porMes = {};
-    linhas.forEach(l => {
-      const m = l.venda.data.slice(0,7);
-      if(!porMes[m]) porMes[m] = { qtd: 0, valor: 0, cortesia: 0 };
-      if(l.cortesia) porMes[m].cortesia += l.item.qtd;
-      else { porMes[m].qtd += l.item.qtd; porMes[m].valor += l.valor; }
-    });
-    const meses = Object.keys(porMes).sort().reverse();
-    const maxMes = Math.max(...meses.map(m => porMes[m].qtd), 1);
-
-    const porCliente = {};
-    pagas.forEach(l => {
-      const k = l.venda.clienteId || '-';
-      if(!porCliente[k]) porCliente[k] = { clienteId: l.venda.clienteId, qtd: 0, valor: 0 };
-      porCliente[k].qtd += l.item.qtd; porCliente[k].valor += l.valor;
-    });
-    const topClientes = Object.values(porCliente).sort((a,b)=>b.qtd-a.qtd).slice(0,5);
-
+    const grupos = {};
+    linhas.forEach(l => { const m = (l.venda.data||'').slice(0,7); (grupos[m] = grupos[m] || []).push(l); });
+    const meses = Object.keys(grupos).sort().reverse();
     cont.innerHTML = `
-      <div class="stat-grid" style="margin-bottom:12px;">
-        <div class="stat"><div class="num">${fmtQ(qtdTotal)}</div><div class="lbl">Vendido no total${cortesiaQtd ? ` (+${cortesiaQtd} cortesia)` : ''}</div></div>
-        <div class="stat gold"><div class="num">${fmtMoney(valorTotal)}</div><div class="lbl">Faturado com este produto</div></div>
-        <div class="stat"><div class="num">${fmtMoney(valorTotal - custoTotal)}</div><div class="lbl">Lucro estimado</div></div>
-        <div class="stat gold"><div class="num">${clientesUnicos}</div><div class="lbl">Cliente(s) diferentes</div></div>
+      <div class="hp-resumo">
+        <div><div class="hp-num">${qtdTotal}</div><div class="hp-lbl">${unidade === 'un' ? 'unidades' : unidade} vendidas</div></div>
+        <div><div class="hp-num">${fmtMoney(valorTotal)}</div><div class="hp-lbl">faturado</div></div>
+        <div><div class="hp-num">${fmtMoney(valorTotal - custoTotal)}</div><div class="hp-lbl">lucro</div></div>
       </div>
-
-      <h3 style="margin:6px 0 8px;">Por mês</h3>
-      ${meses.map(m => `
-        <div style="margin-bottom:8px;">
-          <div style="display:flex; justify-content:space-between; font-size:13px;">
-            <span>${labelMes(m)}</span>
-            <span>${fmtQ(porMes[m].qtd)}${porMes[m].cortesia ? ` +${porMes[m].cortesia} cort.` : ''} · ${fmtMoney(porMes[m].valor)}</span>
-          </div>
-          <div style="background:rgba(237,234,227,.08); height:6px; margin-top:3px;">
-            <div style="width:${Math.round(porMes[m].qtd / maxMes * 100)}%; height:100%; background:var(--green);"></div>
-          </div>
-        </div>
-      `).join('')}
-
-      ${topClientes.length ? `
-        <h3 style="margin:14px 0 8px;">Quem mais compra</h3>
-        ${topClientes.map(c => `<div class="list-item"><div class="info name">${escapeHtml(nomeCliente(c.clienteId))}</div><div style="white-space:nowrap;">${fmtQ(c.qtd)} · ${fmtMoney(c.valor)}</div></div>`).join('')}
-      ` : ''}
-
-      <h3 style="margin:14px 0 8px;">Todas as vendas (${linhas.length})</h3>
-      ${linhas.map(l => {
-        const status = l.cortesia ? '<span class="badge">Cortesia</span>' : (l.venda.status === 'Pago' ? '<span class="badge pago">Pago</span>' : '<span class="badge pendente">Pendente</span>');
+      ${meses.map(m => {
+        const ls = grupos[m];
+        const q = ls.filter(l=>!l.cortesia).reduce((s,l)=>s+l.item.qtd,0);
+        const v = ls.reduce((s,l)=>s+l.valor,0);
         return `
-        <div class="list-item" style="display:block;">
-          <div style="display:flex; justify-content:space-between; gap:8px;">
-            <div class="name">${escapeHtml(nomeCliente(l.venda.clienteId))}</div>
-            <div style="white-space:nowrap;">${l.cortesia ? '—' : fmtMoney(l.valor)}</div>
-          </div>
-          <div class="meta">${fmtDate(l.venda.data)} · ${fmtQtdItem(l.item)}${!l.cortesia && l.item.precoUnit ? ` × ${fmtMoney(l.item.precoUnit)}` : ''} · ${status}</div>
-        </div>`;
+        <div class="hp-mes">
+          <span>${labelMes(m)}</span>
+          <span>${q} ${unidade} · ${fmtMoney(v)}</span>
+        </div>
+        ${ls.map(l => {
+          const st = l.cortesia ? '<span class="hp-st cort">cortesia</span>' : (l.venda.status === 'Pendente' ? '<span class="hp-st pend">pendente</span>' : '<span class="hp-st ok">pago</span>');
+          return `
+          <div class="hp-venda">
+            <div class="hp-dia">${(l.venda.data||'').slice(8,10)}/${(l.venda.data||'').slice(5,7)}</div>
+            <div class="hp-venda-info">
+              <div class="hp-cli">${escapeHtml(nomeCliente(l.venda.clienteId))}</div>
+              <div class="hp-det">${fmtQtdItem(l.item)}${!l.cortesia && l.item.precoUnit ? ` × ${fmtMoney(l.item.precoUnit)}` : ''} · ${st}</div>
+            </div>
+            <div class="hp-val">${l.cortesia ? '—' : fmtMoney(l.valor)}</div>
+          </div>`;
+        }).join('')}`;
       }).join('')}
     `;
   }
+  const jaAberto = document.getElementById('histProdModalBg').classList.contains('active');
   document.getElementById('histProdModalBg').classList.add('active');
+  document.getElementById('histProdTela').scrollTop = 0;
+  if(!jaAberto){ try{ history.pushState({histProd:true}, ''); }catch(e){} }
 }
 function fecharHistoricoProduto(){
+  if(history.state && history.state.histProd){ history.back(); return; }
   document.getElementById('histProdModalBg').classList.remove('active');
 }
+window.addEventListener('popstate', () => {
+  document.getElementById('histProdModalBg').classList.remove('active');
+});
 function toggleDetalheGenerico(chave){
   const el = document.getElementById('detalhe-' + chave);
   if(!el) return;
